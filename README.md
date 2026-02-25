@@ -40,10 +40,15 @@ but also making it joyful to compose ui components in zig.
 
 <br>
 <details>
-<summary><h2>Design Decisions</h2></summary>
+<summary><h2>Design Decisions & Insights</h2></summary>
 Documenting some of the decisions I made along the way as future reference or discussion points.
 
 ### 0.1.0
+
+- Using the `|>` symbol in the doc comments for functions to describe return values
+quickly felt quite nice. I do have ligatures enabled which also makes that symbol look
+nicer. Try it i.e. the views.zig -> AnyWidget -> fn init
+
 </details>
 <br>
 

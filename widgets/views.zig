@@ -78,6 +78,9 @@ pub fn NestedView(comptime V: type, comptime Children: ?type) type {
             return self;
         }
 
+        /// Passes `event` down the tree to all children.
+        /// |> `true` - Event got consumed, stops propagation.
+        /// |> `false` - Event not consumed, continue propagation.
         pub fn update(self: Self, ctx: Ctx, event: Event) bool {
             if (event == .none) return false;
 
@@ -114,6 +117,12 @@ pub fn NestedView(comptime V: type, comptime Children: ?type) type {
                 return false;
         }
 
+        pub fn draw(self: Self, ctx: Ctx, container: RectU) void {
+            _ = self;
+            _ = ctx;
+            _ = container;
+        }
+
         pub fn measure(self: Self, ctx: Ctx, parent: RectU) RectU {
             _ = self;
             _ = ctx;
@@ -121,6 +130,57 @@ pub fn NestedView(comptime V: type, comptime Children: ?type) type {
         }
     };
 }
+
+pub const AnyView = struct {
+    ptr: *anyopaque,
+    updateFn: *const fn (*anyopaque, Ctx, Event) bool,
+    drawFn: *const fn (*anyopaque, Ctx, RectU) bool,
+    // measure?
+
+    /// IMPORTANT: Intented to be used with a per-frame allocator!
+    /// Immediate mode means none of the widgets hang around for
+    /// longer. This also makes memory management for
+    /// these dynamic Views pretty trivial.
+    pub fn init(alloc: Allocator, view: anytype) AnyView {
+        const T = @TypeOf(view);
+        // TODO(views): Pass up error
+        const ptr = alloc.create(T) catch @panic("AnyView.from: out of memory");
+        ptr.* = view;
+        return .{
+            .ptr = ptr,
+            .updateFn = struct {
+                fn f(p: *anyopaque, ctx: Ctx, event: Event) bool {
+                    if (event == .none) return false;
+                    const w: *T = @ptrCast(@alignCast(p));
+                    return if (isUpdatable(T))
+                        w.update(ctx, event)
+                    else
+                        false;
+                }
+            }.f,
+            .drawFn = struct {
+                fn f(p: *anyopaque, ctx: Ctx, rect: RectU) void {
+                    const w: *T = @ptrCast(@alignCast(p));
+                    w.draw(ctx, rect);
+                }
+            }.f,
+
+            // .measureFn = struct {
+            //     fn f(p: *anyopaque, ctx: Ctx, parent: RectU) RectU {
+            //         const w: *T = @ptrCast(@alignCast(p));
+            //         return if (@hasDecl(T, "measure")) w.measure(ctx, parent) else parent;
+            //     }
+            // }.f,
+        };
+    }
+
+    pub fn update(self: AnyView, ctx: Ctx, event: Event) bool {
+        return self.updateFn(self.ptr, ctx, event);
+    }
+    pub fn draw(self: AnyView, ctx: Ctx, rect: RectU) void {
+        self.drawFn(self.ptr, ctx, rect);
+    }
+};
 
 ////////////////////////////////////////
 
