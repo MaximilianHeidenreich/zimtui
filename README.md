@@ -20,12 +20,27 @@
 
 <br><br>
 
+## The Zen
+
+zimtui is a framework for writing tui applications using composable views.
+At it's core the main experiment is trying to find a balance between the [Zen of Zig](#)
+but also making it joyful to compose ui components in zig.
 
 <details>
 <summary><h2>Roadmap</h2></summary>
 
 - [Record demos](https://docs.asciinema.org/getting-started/#__tabbed_1_4)
+
+- Work out zig 0.16 support
 </details>
+
+<details>
+<summary><h2>Design Decisions</h2></summary>
+Documenting some of the decisions I made along the way as future reference or discussion points.
+
+### 0.1.0
+</details>
+
 
 
 ## Credits & References
