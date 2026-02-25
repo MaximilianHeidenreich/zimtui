@@ -26,6 +26,26 @@ zimtui is a framework for writing tui applications using composable views.
 At it's core the main experiment is trying to find a balance between the [Zen of Zig](#)
 but also making it joyful to compose ui components in zig.
 
+<details>
+<summary>Helpful Errors</summary>
+Especially with this view composition api, we can leverage zig's comptime features for validations and nice error messages:
+
+```bash|Creating an invalid View will tell you the exact location.
+src/widgets/views.zig:37:9: error: view (widgets.Box) must implement at least one of: draw, view, update
+        @compileError("view (" ++ @typeName(V) ++ ") must implement at least one of: draw, view, update");
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/widgets/views.zig:26:22: note: called at comptime here
+    return NestedView(V, null);
+           ~~~~~~~~~~^~~~~~~~~
+src/widgets/Box.zig:7:32: note: called at comptime here
+pub fn init(opts: anytype) View(Box) {
+                           ~~~~^~~~~
+referenced by:
+    Box: src/widgets/views.zig:5:35
+    Box: examples/main.zig:4:25
+```
+</details>
+
 
 ---
 
