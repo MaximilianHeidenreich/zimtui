@@ -2,6 +2,8 @@
 //!
 //!
 
+pub const Box = @import("Box.zig").init;
+
 fn isUpdatable(comptime T: type) bool {
     return meta.hasMethod(T, "update");
 }
