@@ -57,9 +57,6 @@ pub fn NestedView(comptime V: type, comptime Children: ?type) type {
         }
     }
 
-    const HAS_CHILDREN = Children != null;
-    _ = HAS_CHILDREN;
-
     return struct {
         const Self = @This();
 
