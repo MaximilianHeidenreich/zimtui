@@ -1,0 +1,11 @@
+.DS_Store
+*.local.*
+bin/
+vendor/*
+
+# ZIG
+.zig-cache/
+zig-out/
+build/
+build-*/
+docgen_tmp/

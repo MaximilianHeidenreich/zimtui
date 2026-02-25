@@ -1,0 +1,20 @@
+.{
+    .name = .zimtui,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.15.2",
+    .dependencies = .{
+        .mibu = .{
+            .url = "git+https://github.com/xyaman/mibu#b1644432384ac31ffeb45e83d3d3501a911e8865",
+            .hash = "mibu-0.0.1-dev-Ddr1rojEAABcqJWjDNhdeK_CWYjQUZlaGIvJwZOHJWf_",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        // "examples",
+        "LICENSE",
+        "README.md",
+    },
+    .fingerprint = 0x73cb2125c0fe1a5b,
+}
