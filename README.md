@@ -28,9 +28,9 @@ but also making it joyful to compose ui components in zig.
 
 <details>
 <summary>Helpful Errors</summary>
-Especially with this view composition api, we can leverage zig's comptime features for validations and nice error messages:
+Especially with this view composition api, we can leverage zig's comptime features for validations and nice error messages i.e. Creating an invalid View will tell you the exact location:
 
-```bash|Creating an invalid View will tell you the exact location.
+```bash
 src/widgets/views.zig:37:9: error: view (widgets.Box) must implement at least one of: draw, view, update
         @compileError("view (" ++ @typeName(V) ++ ") must implement at least one of: draw, view, update");
         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
