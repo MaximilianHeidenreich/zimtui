@@ -47,7 +47,7 @@ Documenting some of the decisions I made along the way as future reference or di
 
 - Using the `|>` symbol in the doc comments for functions to describe return values
 quickly felt quite nice. I do have ligatures enabled which also makes that symbol look
-nicer. Try it i.e. the views.zig -> AnyWidget -> fn init
+nicer. Try it i.e. the `views.zig -> AnyWidget -> fn init()`
 
 </details>
 <br>

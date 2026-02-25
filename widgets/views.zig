@@ -66,6 +66,8 @@ pub fn NestedView(comptime V: type, comptime Children: ?type) type {
         style: CellStyle,
         size: UnitVec2,
 
+        /// Create a View with options. The opts are custom ones or
+        /// can be overrides for the `CommonViewOpts` on all views.
         pub fn init(opts: anytype) Self {
             var self: Self = .{
                 .style = .{},
@@ -73,7 +75,7 @@ pub fn NestedView(comptime V: type, comptime Children: ?type) type {
             };
 
             // Pass through any common fields to self
-            inline for (meta.fields(CommonWidgetOpts)) |f|
+            inline for (meta.fields(CommonViewOpts)) |f|
                 @field(self, f.name) = @field(opts, f.name);
             return self;
         }
@@ -197,14 +199,14 @@ pub inline fn widgetId(index: usize) usize {
 }
 
 // TODO(views): maybe find a better name
-const CommonWidgetOpts = struct {
+const CommonViewOpts = struct {
     size: UnitVec2 = .{},
     // focus_id: ?usize = null,
 };
 
 pub fn ViewOpts(comptime Opts: type) type {
     const opts = meta.fields(Opts);
-    const common = meta.fields(CommonWidgetOpts);
+    const common = meta.fields(CommonViewOpts);
 
     var fields: [common.len + opts.len]builtin.Type.StructField = undefined;
     for (opts, 0..) |f, i| fields[i] = f;
