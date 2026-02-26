@@ -6,9 +6,7 @@
 //!
 
 const Box = @This();
-const Opts = struct {
-    title: []const u8 = "",
-};
+const Opts = struct {};
 
 pub fn init(
     children: anytype,
@@ -17,7 +15,8 @@ pub fn init(
     // TODO(views): Look into whether we want to support
     // overriding i.e. a custom .style here directly
     // if so we migth need some `merge(.{}, opts)` thing.
-    return NestedView(Box, @TypeOf(children)).init(opts);
+    return NestedView(Box, @TypeOf(children))
+        .initWithChildren(children, opts);
 }
 
 pub fn draw(self: Box, ctx: Ctx, container: RectU) void {
