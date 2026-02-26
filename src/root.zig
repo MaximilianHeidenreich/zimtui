@@ -52,7 +52,6 @@ pub const TUI = struct {
     }
 
     pub fn run(self: *TUI, view: anytype) !void {
-        _ = view;
         // defer self.deinit();
 
         if (builtin.os.tag == .windows) {
@@ -107,7 +106,8 @@ pub const TUI = struct {
 
             var cw = self.frame_buffer.writer();
             cw.setStyle(.{ .fg = .{ .indexed = .red }, .mods = .{ .bold = true } });
-            _ = try cw.write("Hello, World!");
+            // _ = try cw.write("Hello, World!");
+            view.draw(.{ .tui = self }, &cw);
         }
     }
 

@@ -20,7 +20,9 @@ fn isValidView(comptime T: type) bool {
     return isDrawable(T) or isViewable(T) or isUpdatable(T);
 }
 
-pub const Ctx = struct { tui: TUI };
+pub const Ctx = struct {
+    tui: *TUI,
+};
 
 pub fn View(comptime V: type) type {
     return NestedView(V, void);
@@ -132,10 +134,11 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                 return false;
         }
 
-        pub fn draw(self: Self, ctx: Ctx, container: RectU) void {
-            _ = self;
-            _ = ctx;
-            _ = container;
+        pub fn draw(self: Self, ctx: Ctx, writer: *CellWriter) void {
+            // _ = self;
+            // _ = ctx;
+            // _ = writer;
+            self.view.draw(ctx, writer);
         }
 
         pub fn measure(self: Self, ctx: Ctx, parent: RectU) RectU {
@@ -149,7 +152,7 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
 pub const AnyView = struct {
     ptr: *anyopaque,
     updateFn: *const fn (*anyopaque, Ctx, Event) bool,
-    drawFn: *const fn (*anyopaque, Ctx, RectU) bool,
+    drawFn: *const fn (*anyopaque, Ctx, CellWriter) bool,
     // measure?
 
     /// IMPORTANT: Intented to be used with a per-frame allocator!
@@ -174,9 +177,9 @@ pub const AnyView = struct {
                 }
             }.f,
             .drawFn = struct {
-                fn f(p: *anyopaque, ctx: Ctx, rect: RectU) void {
+                fn f(p: *anyopaque, ctx: Ctx, writer: CellWriter) void {
                     const w: *T = @ptrCast(@alignCast(p));
-                    w.draw(ctx, rect);
+                    w.draw(ctx, writer);
                 }
             }.f,
 
@@ -192,8 +195,8 @@ pub const AnyView = struct {
     pub fn update(self: AnyView, ctx: Ctx, event: Event) bool {
         return self.updateFn(self.ptr, ctx, event);
     }
-    pub fn draw(self: AnyView, ctx: Ctx, rect: RectU) void {
-        self.drawFn(self.ptr, ctx, rect);
+    pub fn draw(self: AnyView, ctx: Ctx, writer: CellWriter) void {
+        self.drawFn(self.ptr, ctx, writer);
     }
 };
 
@@ -246,4 +249,5 @@ const math = M.math;
 const RectU = math.RectU;
 const UnitVec2 = math.UnitVec2;
 const CellStyle = M.Io.CellStyle;
+const CellWriter = M.Io.CellWriter;
 const Event = M.Event;

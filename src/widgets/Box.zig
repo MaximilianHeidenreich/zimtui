@@ -19,16 +19,19 @@ pub fn init(
         .initWithChildren(children, opts);
 }
 
-pub fn draw(self: Box, ctx: Ctx, container: RectU) void {
+pub fn draw(self: Box, ctx: Ctx, writer: *CellWriter) void {
     _ = self;
     _ = ctx;
-    _ = container;
+    for (0..(writer.clip_width * writer.clip_height)) |_| {
+        _ = try writer.write("e");
+    }
 }
 
 ////////////////////////////////////////
 
 const std = @import("std");
 const M = @import("../root.zig");
+const CellWriter = M.Io.CellWriter;
 const RectU = M.math.RectU;
 const Ctx = M.views.Ctx;
 const CommonViewOpts = M.views.CommonViewOpts;
