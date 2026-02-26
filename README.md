@@ -75,7 +75,7 @@ nicer. Try it i.e. the `views.zig -> AnyWidget -> fn init()`
 ## Credits & References
 
 **Credits**
-- Thx to `xyaman` for crafting [mibu](https://github.com/xyaman/mibu) which ImTui uses for backend terminal manageemnt.
+- Thx to `xyaman` for crafting [mibu](https://github.com/xyaman/mibu) which zimtui uses for backend terminal manageemnt.
 
 **References**
 - [Generating unique id's for widgets using `@returnAddress()` builtin trick.](https://gamesbymason.com/2023/11/03/uniques/)
