@@ -213,6 +213,7 @@ pub inline fn widgetId(index: usize) usize {
 
 // TODO(views): maybe find a better name
 pub const CommonViewOpts = struct {
+    style: ?CellStyle = null,
     size: UnitVec2 = .{},
     // focus_id: ?usize = null,
 };
