@@ -23,7 +23,7 @@ fn isValidView(comptime T: type) bool {
 pub const Ctx = struct { tui: TUI };
 
 pub fn View(comptime V: type) type {
-    return NestedView(V, null);
+    return NestedView(V, void);
 }
 
 ///
@@ -32,31 +32,30 @@ pub fn View(comptime V: type) type {
 ///   - A pointer to a view implementation -> *struct {}
 ///   - A tuple of elements -> .{ Text(...), Label(...) }
 ///
-pub fn NestedView(comptime V: type, comptime Children: ?type) type {
+pub fn NestedView(comptime V: type, comptime Children: type) type {
     if (!isValidView(V))
         @compileError("view (" ++ @typeName(V) ++ ") must implement at least one of: draw, view, update");
 
-    if (Children) |C| {
-        switch (@typeInfo(C)) {
-            .@"struct" => |s| {
-                if (s.is_tuple) {
-                    inline for (s.fields) |f| {
-                        if (!isValidView(f.type))
-                            @compileError("View tuple child '" ++ f.name ++ "' (" ++ @typeName(f.type) ++ ") must implement at least one of: draw, view, update");
-                    }
-                } else {
-                    if (!isValidView(C))
-                        @compileError("View Children (" ++ @typeName(C) ++ ") must implement at least one of: draw, view, update");
+    switch (@typeInfo(Children)) {
+        .void => {},
+        .@"struct" => |s| {
+            if (s.is_tuple) {
+                inline for (s.fields) |f| {
+                    if (!isValidView(f.type))
+                        @compileError("View tuple child '" ++ f.name ++ "' (" ++ @typeName(f.type) ++ ") must implement at least one of: draw, view, update");
                 }
-            },
-            .pointer => |p| {
-                if (p.size != .slice)
-                    @compileError("View Children pointer must be a slice, got: " ++ @typeName(C));
-                if (!isValidView(p.child))
-                    @compileError("View slice element (" ++ @typeName(p.child) ++ ") must implement at least one of: draw, view, update");
-            },
-            else => @compileError("unsupported view Children type: " ++ @typeName(C)),
-        }
+            } else {
+                if (!isValidView(Children))
+                    @compileError("View Children (" ++ @typeName(Children) ++ ") must implement at least one of: draw, view, update");
+            }
+        },
+        .pointer => |p| {
+            if (p.size != .slice)
+                @compileError("View Children pointer must be a slice, got: " ++ @typeName(Children));
+            if (!isValidView(p.child))
+                @compileError("View slice element (" ++ @typeName(p.child) ++ ") must implement at least one of: draw, view, update");
+        },
+        else => @compileError("unsupported view Children type: " ++ @typeName(Children)),
     }
 
     return struct {
@@ -68,17 +67,29 @@ pub fn NestedView(comptime V: type, comptime Children: ?type) type {
         style: CellStyle,
         size: UnitVec2,
 
-        /// Create a View with options. The opts are custom ones or
-        /// can be overrides for the `CommonViewOpts` on all views.
+        /// Create a View with no children. For `NestedView`, use `initWithChildren`.
         pub fn init(opts: anytype) Self {
+            return initWithChildren({}, opts);
+        }
+
+        pub fn initWithChildren(children: Children, opts: anytype) Self {
             var self: Self = .{
+                .view = .{},
+                .children = children,
                 .style = .{},
                 .size = .{},
             };
 
-            // Pass through any common fields to self
+            // Populate view fields from opts (none-common)
+            inline for (meta.fields(V)) |f| {
+                if (!@hasField(CommonViewOpts, f.name) and @hasField(@TypeOf(opts), f.name))
+                    @field(self.view, f.name) = @field(opts, f.name);
+            }
+
+            // Populate common view fields from opts
             inline for (meta.fields(CommonViewOpts)) |f|
                 @field(self, f.name) = @field(opts, f.name);
+
             return self;
         }
 
@@ -201,7 +212,7 @@ pub inline fn widgetId(index: usize) usize {
 }
 
 // TODO(views): maybe find a better name
-const CommonViewOpts = struct {
+pub const CommonViewOpts = struct {
     size: UnitVec2 = .{},
     // focus_id: ?usize = null,
 };
