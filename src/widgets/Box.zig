@@ -22,9 +22,11 @@ pub fn init(
 pub fn draw(self: Box, ctx: Ctx, writer: *CellWriter) void {
     _ = self;
     _ = ctx;
-    for (0..(writer.clip_width * writer.clip_height)) |_| {
-        _ = try writer.write("e");
-    }
+    // for (0..(writer.clip_width * writer.clip_height)) |_| {
+    //     _ = try writer.write("e");
+    // }
+    const cell = M.Io.Cell.initChar(" ", .{ .bg = .{ .indexed = .grey_85 } }) catch @panic("foo");
+    writer.fill(cell);
 }
 
 ////////////////////////////////////////

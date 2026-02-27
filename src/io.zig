@@ -35,19 +35,24 @@ pub const CellStyle = struct {
 
 pub const Cell = struct {
     code: u21 = ' ',
-    style: CellStyle = .{},
+
+    /// TODO: describe better
+    /// null -> no change, inherit
+    /// .{} -> defautl style reset
+    style: ?CellStyle = null,
 
     /// Creates a Cell from a single given char, will fail if char is longer
     /// than one codepoint. Will be replaced with full unicode support later.
-    pub fn initChar(comptime char: []const u8) !Cell {
+    pub fn initChar(comptime char: []const u8, style: ?CellStyle) !Cell {
         assert(std.unicode.utf8ValidateSlice(char));
         const view = try std.unicode.Utf8View.init(char);
         var iter = view.iterator();
         while (iter.nextCodepoint()) |u| {
-            if (iter.nextCodepoint() != null)
-                @compileError("Full unicode not yet supported!");
-            return .{ .code = u };
+            // if (iter.nextCodepoint() != null)
+            //     @compileError("Full unicode not yet supported!");
+            return .{ .code = u, .style = style };
         }
+        return error.TODO;
     }
 };
 
@@ -182,18 +187,19 @@ pub const FrameBuffer = struct {
                 }
 
                 // Emit style changes (modifiers)
-                if (try emitStyle(w, cur_mods, back_cell.style.mods)) {
+                const style = back_cell.style orelse CellStyle{};
+                if (try emitStyle(w, cur_mods, style.mods)) {
                     // Full reset was emitted — terminal colors are back to default
                     cur_fg = .default;
                     cur_bg = .default;
                 }
-                cur_mods = back_cell.style.mods;
+                cur_mods = style.mods;
 
                 // Emit color changes
-                try emitColor(w, .fg, cur_fg, back_cell.style.fg);
-                try emitColor(w, .bg, cur_bg, back_cell.style.bg);
-                cur_fg = back_cell.style.fg;
-                cur_bg = back_cell.style.bg;
+                try emitColor(w, .fg, cur_fg, style.fg);
+                try emitColor(w, .bg, cur_bg, style.bg);
+                cur_fg = style.fg;
+                cur_bg = style.bg;
 
                 // Write the character
                 var utf8_buf: [4]u8 = undefined;
@@ -329,6 +335,27 @@ pub const CellWriter = struct {
         }
 
         return written;
+    }
+
+    pub fn fill(self: *CellWriter, cell: Cell) void {
+        const resolved: Cell = .{
+            .code = cell.code,
+            .style = cell.style orelse self.style,
+        };
+
+        for (0..self.clip_height) |row| {
+            const start = (self.clip_y + row) * self.buffer.width + self.clip_x;
+            @memset(self.buffer.back[start .. start + self.clip_width], resolved);
+        }
+    }
+
+    // TODO(misc): is put the best name?
+    pub fn put(self: *CellWriter, x: usize, y: usize, cell: Cell) void {
+        if (x >= self.clip_width or y >= self.clip_height) return;
+        self.buffer.back[(self.clip_y + y) * self.buffer.width + self.clip_x + x] = .{
+            .code = cell.code,
+            .style = cell.style orelse self.style,
+        };
     }
 
     /// Get a std.io.Writer interface
