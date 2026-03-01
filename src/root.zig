@@ -1,5 +1,6 @@
 pub const math = @import("math/math.zig");
 pub const Io = @import("io.zig");
+pub const utils = @import("utils.zig");
 pub const Event = mibu.events.Event;
 pub const views = @import("widgets/views.zig"); // TODO(chore): decide on rename
 
