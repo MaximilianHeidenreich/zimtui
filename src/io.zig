@@ -359,7 +359,7 @@ pub const CellWriter = struct {
     }
 
     /// Get a std.io.Writer interface
-    pub fn stdWriter(self: *CellWriter) std.io.Writer(*CellWriter, error{}, write) {
+    pub fn writer(self: *CellWriter) std.io.GenericWriter(*CellWriter, error{}, write) {
         return .{ .context = self };
     }
 };

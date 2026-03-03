@@ -105,10 +105,21 @@ pub const TUI = struct {
                 else => {},
             }
 
-            var cw = self.frame_buffer.writer();
-            cw.setStyle(.{ .fg = .{ .indexed = .red }, .mods = .{ .bold = true } });
+            // var cw = self.frame_buffer.writer();
+            // cw.setStyle(.{ .fg = .{ .indexed = .red }, .mods = .{ .bold = true } });
             // _ = try cw.write("Hello, World!");
-            view.draw(.{ .tui = self }, &cw);
+            // view.draw(.{ .tui = self }, &cw);
+
+            const ctx: Ctx = .{ .tui = self };
+            const placed = view.place(ctx, self.current_bounds);
+            var cw = self.frame_buffer.writer();
+            var vcw = cw.subWriter(
+                placed.min.x,
+                placed.min.y,
+                placed.max.x -| placed.min.x,
+                placed.max.y -| placed.min.y,
+            );
+            view.draw(ctx, &vcw);
         }
     }
 
@@ -131,3 +142,4 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 const File = std.fs.File;
 const FrameBuffer = Io.FrameBuffer;
 const RectU = math.RectU;
+const Ctx = views.Ctx;
