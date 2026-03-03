@@ -3,6 +3,8 @@
 //!
 
 pub const Box = @import("Box.zig").init;
+pub const Text = @import("Text.zig").init;
+pub const Label = @import("Text.zig").Label;
 
 fn isUpdatable(comptime T: type) bool {
     return meta.hasMethod(T, "update");
@@ -68,18 +70,26 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
 
         style: CellStyle,
         size: UnitVec2,
+        pos: UnitVec2,
+        padding: InsetsU,
+        margin: InsetsU,
+        border: Border,
 
         /// Create a View with no children. For `NestedView`, use `initWithChildren`.
-        pub fn init(opts: anytype) Self {
-            return initWithChildren({}, opts);
+        pub fn init(view: V, opts: anytype) Self {
+            return initWithChildren({}, view, opts);
         }
 
-        pub fn initWithChildren(children: Children, opts: anytype) Self {
+        pub fn initWithChildren(children: Children, view: V, opts: anytype) Self {
             var self: Self = .{
-                .view = .{},
+                .view = view,
                 .children = children,
                 .style = .{},
                 .size = .{},
+                .pos = .{},
+                .padding = .{},
+                .margin = .{},
+                .border = .none,
             };
 
             // Populate view fields from opts (none-common)
@@ -134,17 +144,98 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                 return false;
         }
 
-        pub fn draw(self: Self, ctx: Ctx, writer: *CellWriter) void {
-            // _ = self;
-            // _ = ctx;
-            // _ = writer;
-            self.view.draw(ctx, writer);
+        pub fn measure(self: Self, ctx: Ctx, container: RectU) RectU {
+            const inner = self.padding.resolve(
+                self.border.resolve(
+                    self.margin.resolve(container),
+                ),
+            );
+            const content = if (comptime meta.hasMethod(V, "measure"))
+                self.view.measure(ctx, inner)
+            else
+                inner;
+
+            return InsetsU.all(self.border.thickness()).expand(self.padding.expand(content));
         }
 
-        pub fn measure(self: Self, ctx: Ctx, parent: RectU) RectU {
-            _ = self;
-            _ = ctx;
-            _ = parent;
+        pub fn layout(self: Self, ctx: Ctx, placed: RectU) RectU {
+            const content = self.padding.resolve(self.border.resolve(placed));
+            if (comptime meta.hasMethod(V, "layout"))
+                self.view.layout(ctx, content);
+            return content;
+        }
+
+        pub fn place(self: Self, ctx: Ctx, container: RectU) RectU {
+            const natural = self.measure(ctx, container);
+            const sized_rect = natural.sized(container, self.size.X, self.size.Y);
+
+            if (self.pos.X == null and self.pos.Y == null) return sized_rect;
+
+            const w = sized_rect.max.x -| sized_rect.min.x;
+            const h = sized_rect.max.y -| sized_rect.min.y;
+            const origin = self.pos.resolveBase(container);
+
+            return .{
+                .min = origin.min,
+                .max = .{
+                    .x = origin.min.x +| w,
+                    .y = origin.min.y +| h,
+                },
+            };
+        }
+
+        pub fn draw(self: Self, ctx: Ctx, writer: *CellWriter) void {
+            if (!meta.eql(self.style, CellStyle{})) {
+                writer.style = self.style;
+            }
+
+            self.border.write(writer);
+
+            const placed = RectU{
+                .min = .{ .x = 0, .y = 0 },
+                .max = .{ .x = writer.clip_width, .y = writer.clip_height },
+            };
+            const content = self.layout(ctx, placed);
+            var cw = writer.subWriter(
+                content.min.x,
+                content.min.y,
+                content.max.x -| content.min.x,
+                content.max.y -| content.min.y,
+            );
+            self.view.draw(ctx, &cw);
+
+            switch (comptime @typeInfo(Children)) {
+                .void => {},
+                .@"struct" => |s| {
+                    if (s.is_tuple) {
+                        inline for (meta.fields(Children)) |f| {
+                            if (comptime isDrawable(f.type)) {
+                                const child = @field(self.children, f.name);
+                                const cp = child.place(ctx, content);
+                                var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min
+                                    .x, cp.max.y -| cp.min.y);
+                                child.draw(ctx, &ccw);
+                            }
+                        }
+                    } else {
+                        if (comptime isDrawable(Children)) {
+                            const cp = self.children.place(ctx, content);
+                            var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
+                            self.children.draw(ctx, &ccw);
+                        }
+                    }
+                },
+                .pointer => {
+                    if (comptime isDrawable(@typeInfo(Children).pointer.child)) {
+                        for (self.children) |child| {
+                            const cp = child.place(ctx, content);
+                            var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
+                            child.draw(ctx, &ccw);
+                        }
+                    }
+                },
+                else => {},
+            }
         }
     };
 }
@@ -222,18 +313,7 @@ pub const CommonViewOpts = struct {
 };
 
 pub fn ViewOpts(comptime Opts: type) type {
-    const opts = meta.fields(Opts);
-    const common = meta.fields(CommonViewOpts);
-
-    var fields: [common.len + opts.len]builtin.Type.StructField = undefined;
-    for (opts, 0..) |f, i| fields[i] = f;
-    for (common, 0..) |f, i| fields[opts.len + i] = f;
-    return @Type(.{ .@"struct" = .{
-        .layout = .auto,
-        .fields = &fields,
-        .decls = &.{},
-        .is_tuple = false,
-    } });
+    return MergeT(Opts, CommonViewOpts);
 }
 
 ////////////////////////////////////////
@@ -248,6 +328,10 @@ const TUI = M.TUI;
 const math = M.math;
 const RectU = math.RectU;
 const UnitVec2 = math.UnitVec2;
+const InsetsU = math.InsetsU;
+const MergeT = M.utils.MergeT;
+const Border = M.utils.Border;
+
 const CellStyle = M.Io.CellStyle;
 const CellWriter = M.Io.CellWriter;
 const Event = M.Event;
