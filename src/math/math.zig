@@ -503,7 +503,10 @@ pub const Axis = enum {
 
     /// Length of `r` along this axis.
     pub fn len(self: Axis, r: RectU) usize {
-        return if (self == .y) r.max.y -| r.min.y else r.max.x -| r.min.x;
+        return if (self == .y)
+            r.max.y -| r.min.y
+        else
+            r.max.x -| r.min.x;
     }
 
     /// A rect sized `size` along this axis, spanning the full available extent in the other.
