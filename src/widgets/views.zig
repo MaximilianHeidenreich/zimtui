@@ -223,7 +223,20 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
         }
 
         pub fn place(self: Self, ctx: Ctx, container: RectU) RectU {
-            const natural = self.measure(ctx, container);
+            const natural = if (comptime isViewable(V)) blk: {
+                const inner = self.padding.resolve(self.border.resolve(self.margin.resolve(container)));
+                const inner_size = RectU{
+                    .min = .{ .x = 0, .y = 0 },
+                    .max = .{ .x = inner.max.x -| inner.min.x, .y = inner.max.y -| inner.min.y },
+                };
+                const av_cp = self.view.view(ctx).place(ctx, inner_size);
+                const av_content = RectU{
+                    .min = inner.min,
+                    .max = .{ .x = inner.min.x +| (av_cp.max.x -| av_cp.min.x), .y = inner.min.y +| (av_cp.max.y -| av_cp.min.y) },
+                };
+                break :blk InsetsU.all(self.border.thickness()).expand(self.padding.expand(av_content));
+            } else self.measure(ctx, container);
+
             const sized_rect = natural.sized(container, self.size.X, self.size.Y);
 
             if (self.pos.X == null and self.pos.Y == null) return sized_rect;
@@ -266,8 +279,13 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
 
             if (comptime isDrawable(V))
                 self.view.draw(ctx, &cw)
-            else if (comptime isViewable(V))
-                self.view.view(ctx).draw(ctx, &cw);
+            else if (comptime isViewable(V)) {
+                const av = self.view.view(ctx);
+                const av_container = RectU{ .min = .{ .x = 0, .y = 0 }, .max = .{ .x = cw.clip_width, .y = cw.clip_height } };
+                const cp = av.place(ctx, av_container);
+                var av_cw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
+                av.draw(ctx, &av_cw);
+            }
 
             const child_container = RectU{
                 .min = .{ .x = 0, .y = 0 },
@@ -314,6 +332,7 @@ pub const AnyView = struct {
     updateFn: *const fn (*anyopaque, Ctx, Event) bool,
     drawFn: *const fn (*anyopaque, Ctx, *CellWriter) void,
     measureFn: *const fn (*anyopaque, Ctx, RectU) RectU,
+    placeFn: *const fn (*anyopaque, Ctx, RectU) RectU,
 
     /// IMPORTANT: Intended to be used with a per-frame allocator!
     /// Immediate mode means none of the widgets hang around for
@@ -344,6 +363,12 @@ pub const AnyView = struct {
                     return if (comptime isMeasurable(T)) w.measure(ctx, container) else container;
                 }
             }.f,
+            .placeFn = struct {
+                fn f(p: *anyopaque, ctx: Ctx, container: RectU) RectU {
+                    const w: *T = @ptrCast(@alignCast(p));
+                    return if (comptime meta.hasMethod(T, "place")) w.place(ctx, container) else container;
+                }
+            }.f,
         };
     }
 
@@ -355,6 +380,9 @@ pub const AnyView = struct {
     }
     pub fn measure(self: AnyView, ctx: Ctx, container: RectU) RectU {
         return self.measureFn(self.ptr, ctx, container);
+    }
+    pub fn place(self: AnyView, ctx: Ctx, container: RectU) RectU {
+        return self.placeFn(self.ptr, ctx, container);
     }
 };
 
