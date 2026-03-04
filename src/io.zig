@@ -314,6 +314,12 @@ pub const CellWriter = struct {
     /// Write a single codepoint at current cursor position
     /// Future: This will handle wcwidth for wide characters
     pub fn writeCodepoint(self: *CellWriter, codepoint: u21) !void {
+        if (codepoint == '\n') {
+            self.y += 1;
+            self.x = self.clip_x;
+            return;
+        }
+
         if (!self.isInClipRegion(self.x, self.y)) {
             self.x += 1;
             return;
