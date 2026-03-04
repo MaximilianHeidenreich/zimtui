@@ -12,7 +12,7 @@ pub fn main() !void {
     // try tui.run(Label("Hello Kek", .{ .size = .fixed(2) }));
     try tui.run(
         Box(
-            Text("Hello: {s}", .{"World"}, .{ .style = .{ .fg = .{ .indexed = .black } } }),
+            Text("Hello: {s}", .{"World"}, .{ .style = .{ .fg = .{ .indexed = .white } } }),
             .{ .style = .{ .bg = .{ .indexed = .blue } } },
             // .{ .border = .rounded, .style = .{ .bg = .{ .indexed = .blue } } },
         ),

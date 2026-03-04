@@ -214,9 +214,7 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
         }
 
         pub fn draw(self: Self, ctx: Ctx, writer: *CellWriter) void {
-            if (!meta.eql(self.style, CellStyle{})) {
-                writer.style = self.style;
-            }
+            writer.style = self.style.apply(writer.style);
 
             self.border.write(writer);
 

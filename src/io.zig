@@ -3,6 +3,8 @@
 //!
 
 /// Used to style individual term cells.
+/// `null` -> inherit from parent
+/// `.default` -> explicit reset to default
 /// TODO: Efficient diffing
 pub const CellStyle = struct {
     pub const Color = union(enum) {
@@ -22,9 +24,17 @@ pub const CellStyle = struct {
         strikethrough: bool = false,
     };
 
-    fg: Color = .default,
-    bg: Color = .default,
-    mods: Modifiers = .{},
+    fg: ?Color = null,
+    bg: ?Color = null,
+    mods: ?Modifiers = null,
+
+    pub fn apply(self: CellStyle, base: CellStyle) CellStyle {
+        return .{
+            .fg = self.fg orelse base.fg,
+            .bg = self.bg orelse base.bg,
+            .mods = self.mods orelse base.mods,
+        };
+    }
 
     pub fn getDiff(self: CellStyle, other: CellStyle) void {
         _ = self;
@@ -177,36 +187,33 @@ pub const FrameBuffer = struct {
                 const front_cell = self.front[idx];
                 const back_cell = self.back[idx];
 
-                // Skip if cell hasn't changed
                 if (front_cell.code == back_cell.code and
                     std.meta.eql(front_cell.style, back_cell.style)) continue;
 
-                // Move cursor if needed
                 if (cur_y != y or cur_x != x) {
                     try cursor.goTo(w, x + 1, y + 1);
                 }
 
-                // Emit style changes (modifiers)
+                // Emit style changes resolving null fields to defaults
                 const style = back_cell.style orelse CellStyle{};
-                if (try emitStyle(w, cur_mods, style.mods)) {
+                const mods = style.mods orelse CellStyle.Modifiers{};
+                const fg = style.fg orelse .default;
+                const bg = style.bg orelse .default;
+                if (try emitStyle(w, cur_mods, mods)) {
                     // Full reset was emitted — terminal colors are back to default
                     cur_fg = .default;
                     cur_bg = .default;
                 }
-                cur_mods = style.mods;
+                cur_mods = mods;
 
-                // Emit color changes
-                try emitColor(w, .fg, cur_fg, style.fg);
-                try emitColor(w, .bg, cur_bg, style.bg);
-                cur_fg = style.fg;
-                cur_bg = style.bg;
+                try emitColor(w, .fg, cur_fg, fg);
+                try emitColor(w, .bg, cur_bg, bg);
+                cur_fg = fg;
+                cur_bg = bg;
 
-                // Write the character
                 var utf8_buf: [4]u8 = undefined;
                 const len = try std.unicode.utf8Encode(back_cell.code, &utf8_buf);
                 try w.writeAll(utf8_buf[0..len]);
-
-                // Update front buffer
                 self.front[idx] = back_cell;
 
                 cur_x = x + 1;
@@ -220,7 +227,6 @@ pub const FrameBuffer = struct {
             !std.meta.eql(cur_bg, CellStyle.Color.default);
         if (was_styled) try w.writeAll(seq_reset);
 
-        // Update timing info
         const now = nanoTimestamp();
         const dt_ns = now - self.last_time;
         self.last_time = now;
