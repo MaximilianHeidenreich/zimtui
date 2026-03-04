@@ -22,7 +22,6 @@ pub fn view(_: Inspector, ctx: Ctx) AnyView {
             }, .{}),
             .{
                 .border = .dashed,
-                // .margin = .all(1),
                 .padding = .axes(1, 0),
                 .size = .y(.grow()),
                 .style = .{ .bg = .{ .indexed = .grey_93 } },
