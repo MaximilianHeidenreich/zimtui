@@ -59,31 +59,32 @@ pub fn View(comptime V: type) type {
 ///   - A tuple of elements -> .{ Text(...), Label(...) }
 ///
 pub fn NestedView(comptime V: type, comptime Children: type) type {
-    if (!isValidView(V))
-        @compileError("view (" ++ @typeName(V) ++ ") must implement at least one of: draw, view, update");
+    comptime {
+        if (!isValidView(V))
+            @compileError("view (" ++ @typeName(V) ++ ") must implement at least one of: draw, view, update");
 
-    switch (@typeInfo(Children)) {
-        .void => {},
-        .@"struct" => |s| {
-            if (s.is_tuple) {
-                inline for (s.fields) |f| {
-                    if (!isValidView(f.type))
-                        @compileError("View tuple child '" ++ f.name ++ "' (" ++ @typeName(f.type) ++ ") must implement at least one of: draw, view, update");
+        switch (@typeInfo(Children)) {
+            .void => {},
+            .@"struct" => |s| {
+                if (s.is_tuple) {
+                    for (s.fields) |f| {
+                        if (!isValidView(f.type))
+                            @compileError("View tuple child '" ++ f.name ++ "' (" ++ @typeName(f.type) ++ ") must implement at least one of: draw, view, update");
+                    }
+                } else {
+                    if (!isValidView(Children))
+                        @compileError("View Children (" ++ @typeName(Children) ++ ") must implement at least one of: draw, view, update");
                 }
-            } else {
-                if (!isValidView(Children))
-                    @compileError("View Children (" ++ @typeName(Children) ++ ") must implement at least one of: draw, view, update");
-            }
-        },
-        .pointer => |p| {
-            if (p.size != .slice)
-                @compileError("View Children pointer must be a slice, got: " ++ @typeName(Children));
-            if (!isValidView(p.child))
-                @compileError("View slice element (" ++ @typeName(p.child) ++ ") must implement at least one of: draw, view, update");
-        },
-        else => @compileError("unsupported view Children type: " ++ @typeName(Children)),
+            },
+            .pointer => |p| {
+                if (p.size != .slice)
+                    @compileError("View Children pointer must be a slice, got: " ++ @typeName(Children));
+                if (!isValidView(p.child))
+                    @compileError("View slice element (" ++ @typeName(p.child) ++ ") must implement at least one of: draw, view, update");
+            },
+            else => @compileError("unsupported view Children type: " ++ @typeName(Children)),
+        }
     }
-
     return struct {
         const Self = @This();
 
@@ -315,7 +316,7 @@ pub const AnyView = struct {
     /// these dynamic Views pretty trivial.
     pub fn init(alloc: Allocator, view: anytype) AnyView {
         const T = @TypeOf(view);
-        const ptr = alloc.create(T) catch @panic("AnyView.from: out of memory");
+        const ptr = alloc.create(T) catch @panic("AnyView.init: out of memory");
         ptr.* = view;
         return .{
             .ptr = ptr,
