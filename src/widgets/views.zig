@@ -28,6 +28,17 @@ fn isValidView(comptime T: type) bool {
 
 pub const Ctx = struct {
     tui: *TUI,
+
+    // TODO(misc): is alloc clear enough in the context or do we keep alloc_frame
+    // to make it clear this is a per-frame allocator?
+    alloc_frame: Allocator,
+
+    pub fn init(tui: *TUI) Ctx {
+        return .{
+            .tui = tui,
+            .alloc_frame = tui.frame_arena.allocator(),
+        };
+    }
 };
 
 pub fn View(comptime V: type) type {

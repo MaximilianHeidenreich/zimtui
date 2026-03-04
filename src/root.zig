@@ -105,21 +105,9 @@ pub const TUI = struct {
                 else => {},
             }
 
-            // var cw = self.frame_buffer.writer();
-            // cw.setStyle(.{ .fg = .{ .indexed = .red }, .mods = .{ .bold = true } });
-            // _ = try cw.write("Hello, World!");
-            // view.draw(.{ .tui = self }, &cw);
-
-            const ctx: Ctx = .{ .tui = self };
-            const placed = view.place(ctx, self.current_bounds);
+            const ctx: Ctx = .init(self);
             var cw = self.frame_buffer.writer();
-            var vcw = cw.subWriter(
-                placed.min.x,
-                placed.min.y,
-                placed.max.x -| placed.min.x,
-                placed.max.y -| placed.min.y,
-            );
-            view.draw(ctx, &vcw);
+            views.Box(view, .{}).draw(ctx, &cw);
         }
     }
 
