@@ -22,9 +22,68 @@
 
 ## The Zen
 
-zimtui is a framework for writing tui applications using composable views.
+zimtui is a library for writing tui applications using declarative, composable views.
 At it's core the main experiment is trying to find a balance between the [Zen of Zig](#)
-but also making it joyful to compose ui components in zig.
+but also making it joyful to compose ui components in zig inspired.
+
+<details>
+<summary>Usage Examples</summary>
+todo: add im info explainer
+
+
+**Defining a simple widget.**
+```zig
+
+```
+
+**A resuable widget with dynamic data.**
+```zig
+//!
+//! Example widget taken from Inspector.zig
+//!
+
+const Inspector = @This();
+const Opts = struct {};
+
+pub fn init(
+    opts: ViewOpts(Opts),
+) View(Inspector) {
+    return View(Inspector)
+        .init(.{}, opts);
+}
+
+pub fn view(_: Inspector, ctx: Ctx) AnyView {
+    return ctx.widget(
+        Box(
+            Text("FPS: {d:>5.0}\ndt: {d:>2.2}ms\n", .{
+                ctx.tui.fps(),
+                ctx.tui.deltaTime(),
+            }, .{}),
+            .{
+                .border = .dashed,
+                .padding = .axes(1, 0),
+                .size = .y(.grow()),
+                .style = .{ .bg = .{ .indexed = .grey_93 } },
+            },
+        ),
+    );
+}
+
+////////////////////////////////////////
+
+const std = @import("std");
+const M = @import("../root.zig");
+const Ctx = M.views.Ctx;
+const View = M.views.View;
+const ViewOpts = M.views.ViewOpts;
+const AnyView = M.views.AnyView;
+
+const Box = M.views.Box;
+const Text = M.views.Text;
+
+```
+</details>
+
 
 <details>
 <summary>Helpful Errors</summary>
@@ -47,6 +106,17 @@ referenced by:
 </details>
 
 
+## Layout Engine
+
+THe core is based on these 3 passes:
+
+```zig
+
+fn measure(self: Self, constraints: Constraints) -> Size
+fn layout(self: Self, position: Position)
+fn draw(&self, surface: &mut Surface)
+```
+
 ---
 
 <br>
@@ -54,6 +124,22 @@ referenced by:
 <summary><h2>Roadmap</h2></summary>
 
 - [Record demos](https://docs.asciinema.org/getting-started/#__tabbed_1_4)
+
+- [ ] Animation
+- [ ] Hyperlinks (OSC 8)
+- [ ] Bracketed Paste
+- [ ] Kitty Image Protocol
+
+
+### Widgets
+
+- [x] Box
+- [x] Text/Label
+- [ ] Divider
+- [ ] Spacer
+- [ ] Image
+- [ ] F
+- [ ] F
 
 - Work out zig 0.16 support
 </details>
