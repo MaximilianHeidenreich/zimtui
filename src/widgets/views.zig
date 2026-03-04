@@ -262,6 +262,11 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
             else if (comptime isViewable(V))
                 self.view.view(ctx).draw(ctx, &cw);
 
+            const child_container = RectU{
+                .min = .{ .x = 0, .y = 0 },
+                .max = .{ .x = cw.clip_width, .y = cw.clip_height },
+            };
+
             switch (comptime @typeInfo(Children)) {
                 .void => {},
                 .@"struct" => |s| {
@@ -269,15 +274,14 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                         inline for (meta.fields(Children)) |f| {
                             if (comptime isDrawable(f.type)) {
                                 const child = @field(self.children, f.name);
-                                const cp = child.place(ctx, content);
-                                var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min
-                                    .x, cp.max.y -| cp.min.y);
+                                const cp = child.place(ctx, child_container);
+                                var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
                                 child.draw(ctx, &ccw);
                             }
                         }
                     } else {
                         if (comptime isDrawable(Children)) {
-                            const cp = self.children.place(ctx, content);
+                            const cp = self.children.place(ctx, child_container);
                             var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
                             self.children.draw(ctx, &ccw);
                         }
@@ -286,7 +290,7 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                 .pointer => {
                     if (comptime isDrawable(@typeInfo(Children).pointer.child)) {
                         for (self.children) |child| {
-                            const cp = child.place(ctx, content);
+                            const cp = child.place(ctx, child_container);
                             var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
                             child.draw(ctx, &ccw);
                         }
