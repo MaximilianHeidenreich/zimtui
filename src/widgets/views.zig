@@ -7,23 +7,28 @@ pub const Text = @import("Text.zig").init;
 pub const Label = @import("Text.zig").Label;
 pub const Inspector = @import("Inspector.zig").init;
 
-fn isUpdatable(comptime T: type) bool {
+pub fn isUpdatable(comptime T: type) bool {
     return meta.hasMethod(T, "update");
 }
 
-fn isDrawable(comptime T: type) bool {
+pub fn isDrawable(comptime T: type) bool {
     return meta.hasMethod(T, "draw");
 }
 
-fn isMeasurable(comptime T: type) bool {
+pub fn isMeasurable(comptime T: type) bool {
     return meta.hasMethod(T, "measure");
 }
 
-fn isViewable(comptime T: type) bool {
+pub fn isViewable(comptime T: type) bool {
     return meta.hasMethod(T, "view") or @hasDecl(T, "view");
 }
 
-fn isValidView(comptime T: type) bool {
+pub fn isValidView(comptime T: type) bool {
+    // TODO(err):
+    // 1. Move validation here so views can only
+    //    be either drawable or viewable but not both!
+    // 2. Move to using a validateView which does these
+    //    checks and throws compiler erros directly
     return isDrawable(T) or isViewable(T) or isUpdatable(T);
 }
 
