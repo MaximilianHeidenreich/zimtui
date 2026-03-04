@@ -238,6 +238,7 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
         pub fn draw(self: Self, ctx: Ctx, writer: *CellWriter) void {
             writer.style = self.style.apply(writer.style);
 
+            writer.fill(.{ .code = ' ', .style = writer.style });
             self.border.write(writer);
 
             const placed = RectU{
