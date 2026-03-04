@@ -367,6 +367,8 @@ pub inline fn widgetId(index: usize) usize {
 }
 
 // TODO(views): maybe find a better name
+// TODO(views): decide whether to have the `style` field
+// as a seperate struct or directly on the opts.
 pub const CommonViewOpts = struct {
     style: CellStyle = .{},
     size: UnitVec2 = .{},
