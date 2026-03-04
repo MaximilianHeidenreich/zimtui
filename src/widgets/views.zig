@@ -5,6 +5,7 @@
 pub const Box = @import("Box.zig").init;
 pub const Text = @import("Text.zig").init;
 pub const Label = @import("Text.zig").Label;
+pub const Inspector = @import("Inspector.zig").init;
 
 fn isUpdatable(comptime T: type) bool {
     return meta.hasMethod(T, "update");
@@ -38,6 +39,12 @@ pub const Ctx = struct {
             .tui = tui,
             .alloc_frame = tui.frame_arena.allocator(),
         };
+    }
+
+    /// Creates a dynamic widget at runtime.
+    /// NOTE: This uses the frame-local allocator!
+    pub fn widget(self: Ctx, view: anytype) AnyView {
+        return AnyView.init(self.alloc_frame, view);
     }
 };
 
@@ -152,9 +159,11 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                 else => false,
             };
             if (consumed) return true;
-            if (isUpdatable(V))
+            if (comptime isUpdatable(V))
                 // ctx.initWIthFocusId(self.focus_id)
                 return self.view.update(ctx, event)
+            else if (comptime isViewable(V))
+                return self.view.view(ctx).update(ctx, event)
             else
                 return false;
         }
@@ -167,6 +176,8 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
             );
             const content = if (comptime isMeasurable(V))
                 self.view.measure(ctx, inner)
+            else if (comptime isViewable(V))
+                self.view.view(ctx).measure(ctx, inner)
             else switch (comptime @typeInfo(Children)) {
                 .void => inner,
                 .@"struct" => |s| blk: {
@@ -240,7 +251,16 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                 content.max.x -| content.min.x,
                 content.max.y -| content.min.y,
             );
-            self.view.draw(ctx, &cw);
+
+            // TODO(err): Do we rly only want to support either one? Any case for
+            //            both to be valid?
+            comptime if (isDrawable(V) and isViewable(V))
+                @compileError(@typeName(V) ++ ": implement either `draw` or `view`, not both");
+
+            if (comptime isDrawable(V))
+                self.view.draw(ctx, &cw)
+            else if (comptime isViewable(V))
+                self.view.view(ctx).draw(ctx, &cw);
 
             switch (comptime @typeInfo(Children)) {
                 .void => {},
@@ -281,16 +301,15 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
 pub const AnyView = struct {
     ptr: *anyopaque,
     updateFn: *const fn (*anyopaque, Ctx, Event) bool,
-    drawFn: *const fn (*anyopaque, Ctx, CellWriter) bool,
-    // measure?
+    drawFn: *const fn (*anyopaque, Ctx, *CellWriter) void,
+    measureFn: *const fn (*anyopaque, Ctx, RectU) RectU,
 
-    /// IMPORTANT: Intented to be used with a per-frame allocator!
+    /// IMPORTANT: Intended to be used with a per-frame allocator!
     /// Immediate mode means none of the widgets hang around for
     /// longer. This also makes memory management for
     /// these dynamic Views pretty trivial.
     pub fn init(alloc: Allocator, view: anytype) AnyView {
         const T = @TypeOf(view);
-        // TODO(views): Pass up error
         const ptr = alloc.create(T) catch @panic("AnyView.from: out of memory");
         ptr.* = view;
         return .{
@@ -299,33 +318,32 @@ pub const AnyView = struct {
                 fn f(p: *anyopaque, ctx: Ctx, event: Event) bool {
                     if (event == .none) return false;
                     const w: *T = @ptrCast(@alignCast(p));
-                    return if (isUpdatable(T))
-                        w.update(ctx, event)
-                    else
-                        false;
+                    return if (comptime isUpdatable(T)) w.update(ctx, event) else false;
                 }
             }.f,
             .drawFn = struct {
-                fn f(p: *anyopaque, ctx: Ctx, writer: CellWriter) void {
+                fn f(p: *anyopaque, ctx: Ctx, writer: *CellWriter) void {
                     const w: *T = @ptrCast(@alignCast(p));
-                    w.draw(ctx, writer);
+                    if (comptime isDrawable(T)) w.draw(ctx, writer);
                 }
             }.f,
-
-            // .measureFn = struct {
-            //     fn f(p: *anyopaque, ctx: Ctx, parent: RectU) RectU {
-            //         const w: *T = @ptrCast(@alignCast(p));
-            //         return if (@hasDecl(T, "measure")) w.measure(ctx, parent) else parent;
-            //     }
-            // }.f,
+            .measureFn = struct {
+                fn f(p: *anyopaque, ctx: Ctx, container: RectU) RectU {
+                    const w: *T = @ptrCast(@alignCast(p));
+                    return if (comptime isMeasurable(T)) w.measure(ctx, container) else container;
+                }
+            }.f,
         };
     }
 
     pub fn update(self: AnyView, ctx: Ctx, event: Event) bool {
         return self.updateFn(self.ptr, ctx, event);
     }
-    pub fn draw(self: AnyView, ctx: Ctx, writer: CellWriter) void {
+    pub fn draw(self: AnyView, ctx: Ctx, writer: *CellWriter) void {
         self.drawFn(self.ptr, ctx, writer);
+    }
+    pub fn measure(self: AnyView, ctx: Ctx, container: RectU) RectU {
+        return self.measureFn(self.ptr, ctx, container);
     }
 };
 
@@ -345,9 +363,11 @@ pub inline fn widgetId(index: usize) usize {
 
 // TODO(views): maybe find a better name
 pub const CommonViewOpts = struct {
-    border: Border = .none,
     style: CellStyle = .{},
     size: UnitVec2 = .{},
+    padding: InsetsU = .{},
+    margin: InsetsU = .{},
+    border: Border = .none,
     // focus_id: ?usize = null,
 };
 

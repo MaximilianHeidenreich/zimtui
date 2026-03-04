@@ -53,8 +53,6 @@ pub const TUI = struct {
     }
 
     pub fn run(self: *TUI, view: anytype) !void {
-        // defer self.deinit();
-
         if (builtin.os.tag == .windows) {
             try mibu.enableWindowsVTS(self.stdout_file.handle);
         }
@@ -107,7 +105,10 @@ pub const TUI = struct {
 
             const ctx: Ctx = .init(self);
             var cw = self.frame_buffer.writer();
-            views.Box(view, .{}).draw(ctx, &cw);
+            views.Box(.{
+                view,
+                // views.Inspector(.{}),
+            }, .{}).draw(ctx, &cw);
         }
     }
 
