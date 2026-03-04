@@ -13,16 +13,20 @@ pub fn init(
         .init(.{}, opts);
 }
 
-pub fn view(self: Inspector, ctx: Ctx) AnyView {
-    _ = self;
+pub fn view(_: Inspector, ctx: Ctx) AnyView {
     return ctx.widget(
         Box(
-            // Label("Dynamic Inspector", .{ .style = .{ .fg = .{ .indexed = .black } } }),
             Text("FPS: {d:>5.0}\ndt: {d:>2.2}ms\n", .{
                 ctx.tui.fps(),
                 ctx.tui.deltaTime(),
             }, .{}),
-            .{ .border = .dashed, .margin = .all(1), .padding = .axes(1, 0), .size = .y(.grow()) },
+            .{
+                .border = .dashed,
+                // .margin = .all(1),
+                .padding = .axes(1, 0),
+                .size = .y(.grow()),
+                .style = .{ .bg = .{ .indexed = .grey_93 } },
+            },
         ),
     );
 }

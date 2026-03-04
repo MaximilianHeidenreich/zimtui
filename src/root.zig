@@ -107,7 +107,7 @@ pub const TUI = struct {
             var cw = self.frame_buffer.writer();
             views.Box(.{
                 view,
-                // views.Inspector(.{}),
+                views.Inspector(.{}),
             }, .{}).draw(ctx, &cw);
         }
     }
