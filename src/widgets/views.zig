@@ -14,6 +14,10 @@ fn isDrawable(comptime T: type) bool {
     return meta.hasMethod(T, "draw");
 }
 
+fn isMeasurable(comptime T: type) bool {
+    return meta.hasMethod(T, "measure");
+}
+
 fn isViewable(comptime T: type) bool {
     return meta.hasMethod(T, "view") or @hasDecl(T, "view");
 }
@@ -150,10 +154,35 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                     self.margin.resolve(container),
                 ),
             );
-            const content = if (comptime meta.hasMethod(V, "measure"))
+            const content = if (comptime isMeasurable(V))
                 self.view.measure(ctx, inner)
-            else
-                inner;
+            else switch (comptime @typeInfo(Children)) {
+                .void => inner,
+                .@"struct" => |s| blk: {
+                    if (!s.is_tuple) {
+                        break :blk if (comptime isMeasurable(Children))
+                            self.children.measure(ctx, inner)
+                        else
+                            inner;
+                    }
+                    var result = RectU.EMPTY;
+                    inline for (meta.fields(Children)) |f| {
+                        if (comptime isMeasurable(f.type)) {
+                            result = result.merge(@field(self.children, f.name).measure(ctx, inner));
+                        }
+                    }
+                    break :blk if (result.isValid()) result else inner;
+                },
+                .pointer => blk: {
+                    if (comptime !isMeasurable(@typeInfo(Children).pointer.child))
+                        break :blk inner;
+                    var result = RectU.EMPTY;
+                    for (self.children) |child|
+                        result = result.merge(child.measure(ctx, inner));
+                    break :blk if (result.isValid()) result else inner;
+                },
+                else => inner,
+            };
 
             return InsetsU.all(self.border.thickness()).expand(self.padding.expand(content));
         }
@@ -307,6 +336,7 @@ pub inline fn widgetId(index: usize) usize {
 
 // TODO(views): maybe find a better name
 pub const CommonViewOpts = struct {
+    border: Border = .none,
     style: CellStyle = .{},
     size: UnitVec2 = .{},
     // focus_id: ?usize = null,
