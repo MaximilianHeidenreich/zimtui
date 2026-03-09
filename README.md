@@ -121,7 +121,7 @@ fn draw(&self, surface: &mut Surface)
 
 <br>
 <details>
-<summary><h2>Roadmap</h2></summary>
+<summary><h2>Features & Roadmap</h2></summary>
 
 - [Record demos](https://docs.asciinema.org/getting-started/#__tabbed_1_4)
 
@@ -135,6 +135,7 @@ fn draw(&self, surface: &mut Surface)
 
 - [x] Box
 - [x] Text/Label
+- [x] H-/VStack
 - [ ] Divider
 - [ ] Spacer
 - [ ] Image
