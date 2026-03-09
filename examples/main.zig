@@ -13,7 +13,7 @@ pub fn main() !void {
     try tui.run(
         Box(
             Text("Hello: {s}", .{"World"}, .{ .style = .{ .fg = .{ .indexed = .white } } }),
-            .{ .padding = .all(1), .style = .{ .bg = .{ .indexed = .blue } } },
+            .{ .padding = .all(1), .size = .xy(.grow(), .grow()), .style = .{ .bg = .{ .indexed = .blue } } },
         ),
     );
 }

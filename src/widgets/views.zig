@@ -5,6 +5,8 @@
 pub const Box = @import("Box.zig").init;
 pub const Text = @import("Text.zig").init;
 pub const Label = @import("Text.zig").Label;
+pub const HStack = @import("Stack.zig").HStack;
+pub const VStack = @import("Stack.zig").VStack;
 pub const Inspector = @import("Inspector.zig").init;
 
 pub fn isUpdatable(comptime T: type) bool {
@@ -329,6 +331,7 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
 
 pub const AnyView = struct {
     ptr: *anyopaque,
+    size: UnitVec2,
     updateFn: *const fn (*anyopaque, Ctx, Event) bool,
     drawFn: *const fn (*anyopaque, Ctx, *CellWriter) void,
     measureFn: *const fn (*anyopaque, Ctx, RectU) RectU,
@@ -344,6 +347,7 @@ pub const AnyView = struct {
         ptr.* = view;
         return .{
             .ptr = ptr,
+            .size = if (@hasField(T, "size")) view.size else .{},
             .updateFn = struct {
                 fn f(p: *anyopaque, ctx: Ctx, event: Event) bool {
                     if (event == .none) return false;
