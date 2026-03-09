@@ -16,14 +16,14 @@ const Opts = struct {
 pub fn HStack(
     children: anytype,
     opts: ViewOpts(Opts),
-) View(Stack(.x, @TypeOf(children))) {
+) NestedView(StackLayout(.x), @TypeOf(children)) {
     return stackInit(.x, children, opts);
 }
 
 pub fn VStack(
     children: anytype,
     opts: ViewOpts(Opts),
-) View(Stack(.y, @TypeOf(children))) {
+) NestedView(StackLayout(.y), @TypeOf(children)) {
     return stackInit(.y, children, opts);
 }
 
@@ -31,13 +31,8 @@ fn stackInit(
     comptime axis: Axis,
     children: anytype,
     opts: ViewOpts(Opts),
-) View(Stack(axis, @TypeOf(children))) {
-    // TODO(misc): the opts thing again
-    return View(Stack(axis, @TypeOf(children)))
-        .init(.{ .children = children, .gap = 0 }, opts);
-}
-
-fn Stack(comptime axis: Axis, comptime Children: type) type {
+) NestedView(StackLayout(axis), @TypeOf(children)) {
+    const Children = @TypeOf(children);
     comptime switch (@typeInfo(Children)) {
         .@"struct" => |s| {
             if (!s.is_tuple)
@@ -55,10 +50,14 @@ fn Stack(comptime axis: Axis, comptime Children: type) type {
         else => @compileError("Stack(." ++ @tagName(axis) ++ ") children must be a tuple or a slice of views, got: " ++ @typeName(Children)),
     };
 
+    return NestedView(StackLayout(axis), Children)
+        .initWithChildren(children, .{ .gap = 0 }, opts);
+}
+
+fn StackLayout(comptime axis: Axis) type {
     return struct {
         const Self = @This();
 
-        children: Children,
         gap: usize,
 
         fn isGrowable(child: anytype) bool {
@@ -69,25 +68,8 @@ fn Stack(comptime axis: Axis, comptime Children: type) type {
             } else false;
         }
 
-        pub fn update(self: Self, ctx: Ctx, event: Event) bool {
-            if (event == .none) return false;
-
-            switch (@typeInfo(Children)) {
-                .@"struct" => {
-                    inline for (meta.fields(Children)) |f|
-                        if (comptime isUpdatable(f.type))
-                            if (@field(self.children, f.name).update(ctx, event)) return true;
-                },
-                .pointer => {
-                    for (self.children) |child|
-                        if (child.update(ctx, event)) return true;
-                },
-                else => {},
-            }
-            return false;
-        }
-
-        pub fn measure(self: Self, ctx: Ctx, container: RectU) RectU {
+        pub fn measureChildren(self: Self, children: anytype, ctx: Ctx, container: RectU) RectU {
+            const Children = @TypeOf(children);
             const cross_ax: Axis = if (axis == .x) .y else .x;
             var main: usize = 0;
             var cross: usize = 0;
@@ -97,7 +79,7 @@ fn Stack(comptime axis: Axis, comptime Children: type) type {
                     const FIELDS = meta.fields(Children);
 
                     inline for (FIELDS) |f| {
-                        const cm = @field(self.children, f.name).measure(ctx, container);
+                        const cm = @field(children, f.name).measure(ctx, container);
                         main = main +| axis.len(cm);
                         cross = @max(cross, cross_ax.len(cm));
                     }
@@ -106,13 +88,13 @@ fn Stack(comptime axis: Axis, comptime Children: type) type {
                     if (n > 1) main = main +| self.gap * (n - 1);
                 },
                 .pointer => {
-                    for (self.children) |child| {
+                    for (children) |child| {
                         const cm = child.measure(ctx, container);
                         main = main +| axis.len(cm);
                         cross = @max(cross, cross_ax.len(cm));
                     }
 
-                    if (self.children.len > 1) main = main +| self.gap * (self.children.len - 1);
+                    if (children.len > 1) main = main +| self.gap * (children.len - 1);
                 },
                 else => {},
             }
@@ -123,7 +105,8 @@ fn Stack(comptime axis: Axis, comptime Children: type) type {
                 .{ .min = container.min, .max = .{ .x = container.min.x +| cross, .y = container.min.y +| main } };
         }
 
-        pub fn draw(self: Self, ctx: Ctx, writer: *CellWriter) void {
+        pub fn layoutChildren(self: Self, children: anytype, ctx: Ctx, writer: *CellWriter) void {
+            const Children = @TypeOf(children);
             const total_main = if (axis == .x) writer.clip_width else writer.clip_height;
             const total_cross = if (axis == .x) writer.clip_height else writer.clip_width;
 
@@ -143,7 +126,7 @@ fn Stack(comptime axis: Axis, comptime Children: type) type {
                     var fixed: usize = 0;
                     var grow_count: usize = 0;
                     inline for (FIELDS) |f| {
-                        const child = @field(self.children, f.name);
+                        const child = @field(children, f.name);
                         if (isGrowable(child))
                             grow_count += 1
                         else
@@ -157,7 +140,7 @@ fn Stack(comptime axis: Axis, comptime Children: type) type {
                     var offset: usize = 0;
                     var first = true;
                     inline for (FIELDS) |f| {
-                        const child = @field(self.children, f.name);
+                        const child = @field(children, f.name);
                         if (!first) offset = offset +| self.gap;
                         first = false;
                         const child_main = if (isGrowable(child)) grow_each else axis.len(child.measure(ctx, full));
@@ -169,18 +152,18 @@ fn Stack(comptime axis: Axis, comptime Children: type) type {
                     var fixed: usize = 0;
                     var grow_count: usize = 0;
 
-                    for (self.children) |child| {
+                    for (children) |child| {
                         if (isGrowable(child))
                             grow_count += 1
                         else
                             fixed = fixed +| axis.len(child.measure(ctx, full));
                     }
 
-                    if (self.children.len > 1) fixed = fixed +| self.gap * (self.children.len - 1);
+                    if (children.len > 1) fixed = fixed +| self.gap * (children.len - 1);
                     const grow_each = if (grow_count > 0) (total_main -| fixed) / grow_count else 0;
                     var offset: usize = 0;
                     var first = true;
-                    for (self.children) |child| {
+                    for (children) |child| {
                         if (!first) offset = offset +| self.gap;
                         first = false;
                         const child_main = if (isGrowable(child)) grow_each else axis.len(child.measure(ctx, full));
@@ -225,9 +208,7 @@ const meta = std.meta;
 const RectU = M.math.RectU;
 const Axis = M.math.Axis;
 const Ctx = M.views.Ctx;
-const View = M.views.View;
+const NestedView = M.views.NestedView;
 const ViewOpts = M.views.ViewOpts;
 const isValidView = M.views.isValidView;
-const isUpdatable = M.views.isUpdatable;
 const CellWriter = M.Io.CellWriter;
-const Event = M.Event;

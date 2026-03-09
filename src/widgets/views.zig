@@ -25,13 +25,21 @@ pub fn isViewable(comptime T: type) bool {
     return meta.hasMethod(T, "view") or @hasDecl(T, "view");
 }
 
+pub fn hasMeasureChildren(comptime T: type) bool {
+    return meta.hasMethod(T, "measureChildren");
+}
+
+pub fn hasLayoutChildren(comptime T: type) bool {
+    return meta.hasMethod(T, "layoutChildren");
+}
+
 pub fn isValidView(comptime T: type) bool {
     // TODO(err):
     // 1. Move validation here so views can only
     //    be either drawable or viewable but not both!
     // 2. Move to using a validateView which does these
     //    checks and throws compiler erros directly
-    return isDrawable(T) or isViewable(T) or isUpdatable(T);
+    return isDrawable(T) or isViewable(T) or isUpdatable(T) or hasLayoutChildren(T);
 }
 
 pub const Ctx = struct {
@@ -186,6 +194,8 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                 self.view.measure(ctx, inner)
             else if (comptime isViewable(V))
                 self.view.view(ctx).measure(ctx, inner)
+            else if (comptime hasMeasureChildren(V))
+                self.view.measureChildren(self.children, ctx, inner)
             else switch (comptime @typeInfo(Children)) {
                 .void => inner,
                 .@"struct" => |s| blk: {
@@ -289,41 +299,45 @@ pub fn NestedView(comptime V: type, comptime Children: type) type {
                 av.draw(ctx, &av_cw);
             }
 
-            const child_container = RectU{
-                .min = .{ .x = 0, .y = 0 },
-                .max = .{ .x = cw.clip_width, .y = cw.clip_height },
-            };
+            if (comptime hasLayoutChildren(V)) {
+                self.view.layoutChildren(self.children, ctx, &cw);
+            } else {
+                const child_container = RectU{
+                    .min = .{ .x = 0, .y = 0 },
+                    .max = .{ .x = cw.clip_width, .y = cw.clip_height },
+                };
 
-            switch (comptime @typeInfo(Children)) {
-                .void => {},
-                .@"struct" => |s| {
-                    if (s.is_tuple) {
-                        inline for (meta.fields(Children)) |f| {
-                            if (comptime isDrawable(f.type)) {
-                                const child = @field(self.children, f.name);
+                switch (comptime @typeInfo(Children)) {
+                    .void => {},
+                    .@"struct" => |s| {
+                        if (s.is_tuple) {
+                            inline for (meta.fields(Children)) |f| {
+                                if (comptime isDrawable(f.type)) {
+                                    const child = @field(self.children, f.name);
+                                    const cp = child.place(ctx, child_container);
+                                    var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
+                                    child.draw(ctx, &ccw);
+                                }
+                            }
+                        } else {
+                            if (comptime isDrawable(Children)) {
+                                const cp = self.children.place(ctx, child_container);
+                                var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
+                                self.children.draw(ctx, &ccw);
+                            }
+                        }
+                    },
+                    .pointer => {
+                        if (comptime isDrawable(@typeInfo(Children).pointer.child)) {
+                            for (self.children) |child| {
                                 const cp = child.place(ctx, child_container);
                                 var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
                                 child.draw(ctx, &ccw);
                             }
                         }
-                    } else {
-                        if (comptime isDrawable(Children)) {
-                            const cp = self.children.place(ctx, child_container);
-                            var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
-                            self.children.draw(ctx, &ccw);
-                        }
-                    }
-                },
-                .pointer => {
-                    if (comptime isDrawable(@typeInfo(Children).pointer.child)) {
-                        for (self.children) |child| {
-                            const cp = child.place(ctx, child_container);
-                            var ccw = cw.subWriter(cp.min.x, cp.min.y, cp.max.x -| cp.min.x, cp.max.y -| cp.min.y);
-                            child.draw(ctx, &ccw);
-                        }
-                    }
-                },
-                else => {},
+                    },
+                    else => {},
+                }
             }
         }
     };
